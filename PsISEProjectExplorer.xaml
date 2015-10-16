@@ -1,0 +1,272 @@
+<UserControl x:Class="PsISEProjectExplorer.ProjectExplorerWindow"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:viewModel="clr-namespace:PsISEProjectExplorer.UI.ViewModel"
+             xmlns:uiHelpers="clr-namespace:PsISEProjectExplorer.UI.Helpers"
+             mc:Ignorable="d"
+             d:DesignHeight="300" d:DesignWidth="300">
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+            <uiHelpers:EmptyListToVisibilityConverter x:Key="EmptyListToVisibilityConverter"/>
+            <DataTemplate x:Key="StandardTemplate">
+                <StackPanel Orientation="Horizontal" ToolTip="{Binding Path=Tooltip}">
+                    <Image Source="{Binding Path=Image}" />
+                    <TextBlock Text="{Binding Path=Name}" Margin="5,0,0,0" />
+                </StackPanel>
+            </DataTemplate>
+            <DataTemplate x:Key="EditTemplate">
+                <StackPanel Orientation="Horizontal">
+                    <Image Source="{Binding Path=Image}" />
+                    <TextBox Name="EditItemTextBox" Text="{Binding Path=Name, UpdateSourceTrigger=Explicit, Mode=OneWay}" Margin="5,0,0,0" LostFocus="SearchResults_EndEdit"
+                             uiHelpers:FocusExtensions.IsDefaultFocusElement="True" KeyDown="SearchResults_EditKeyDown"/>
+                </StackPanel>
+            </DataTemplate>
+        </ResourceDictionary>
+
+    </UserControl.Resources>
+    <Grid d:DataContext="{d:DesignInstance viewModel:MainViewModel}">
+        <TextBlock HorizontalAlignment="Left" Margin="10,5,0,0" TextWrapping="NoWrap" Text="Workspace:" VerticalAlignment="Top"
+                   Visibility="{Binding Path=WorkspaceDirectoryModel.WorkspaceDirectories, Converter={StaticResource EmptyListToVisibilityConverter}}" />
+        <ComboBox HorizontalAlignment="Stretch" Margin="72,1,66,0" ItemsSource="{Binding Path=WorkspaceDirectoryModel.WorkspaceDirectories}"
+                  SelectedValue="{Binding Path=WorkspaceDirectoryModel.CurrentWorkspaceDirectory}" VerticalAlignment="Top" MaxDropDownHeight="Auto"
+                  Visibility="{Binding Path=WorkspaceDirectoryModel.WorkspaceDirectories, Converter={StaticResource EmptyListToVisibilityConverter}}" />
+        <TextBlock HorizontalAlignment="Stretch" Margin="10,5,66,0" Text="[Please open a Powershell file or click 'Change' button]"
+                  VerticalAlignment="Top"
+                  Visibility="{Binding Path=WorkspaceDirectoryModel.WorkspaceDirectories, Converter={StaticResource EmptyListToVisibilityConverter}, ConverterParameter=VisibleOnEmpty}"/>
+        <Button Content="Change" HorizontalAlignment="Right" Margin="0,1,10,0" VerticalAlignment="Top" Width="51" Click="ChangeWorkspace_Click"/>
+        <TextBox Name="TextBoxSearchText" HorizontalAlignment="Stretch" Height="21" Margin="10,25,36,0" TextWrapping="Wrap" VerticalAlignment="Top" Text="{Binding Path=SearchText, UpdateSourceTrigger=PropertyChanged, Delay=150}" MaxLength="100"
+                 x:FieldModifier="private" />
+        <Button VerticalAlignment="Top" Height="21" Margin="10,25,10,0" HorizontalAlignment="Right" Click="TextBoxSearchClear_Click">
+            <Image Source="Resources/cancel.png" ToolTip="Clear search text" />
+        </Button>
+        <ToolBarTray Height="32" VerticalAlignment="Top" HorizontalAlignment="Right" Margin="0,48,-4,0" IsLocked="True" Background="{DynamicResource {x:Static SystemColors.WindowBrush}}">
+            <uiHelpers:LockedToolBar x:Name="ButtonToolbar" AllowDrop="False" Background="{DynamicResource {x:Static SystemColors.WindowBrush}}">
+                <ToggleButton IsChecked="{Binding Path=SearchRegex}">
+                    <Image Source="Resources\toolbar_searchRegex.png" ToolTip="Search using Regex" />
+                </ToggleButton>
+                <ToggleButton IsChecked="{Binding Path=SearchInFiles}">
+                    <Image Source="Resources\toolbar_searchInFiles.png" ToolTip="Search in Files" />
+                </ToggleButton>
+                <ToggleButton IsChecked="{Binding Path=ShowAllFiles}">
+                    <Image Source="Resources\toolbar_showAllFiles.png" ToolTip="Show All Files" />
+                </ToggleButton>
+                <ToggleButton IsChecked="{Binding Path=SyncWithActiveDocument}">
+                    <Image Source="Resources\toolbar_sync.png" ToolTip="Sync with Active Document"/>
+                </ToggleButton>
+                <Button Click="RefreshDirectoryStructure_Click">
+                    <Image Source="Resources\toolbar_refresh.png" ToolTip="Refresh Directory Structure" />
+                </Button>
+                <Button Click="CollapseAll_Click" >
+                    <Image Source="Resources\toolbar_toggle_collapse.png" ToolTip="Collapse All" />
+                </Button>
+                <ToggleButton IsChecked="{Binding Path=WorkspaceDirectoryModel.AutoUpdateRootDirectory}">
+                    <Image Source="Resources\toolbar_autoUpdateProjectDir.png" ToolTip="Auto-update Workspace Directory"/>
+                </ToggleButton>
+            </uiHelpers:LockedToolBar>
+        </ToolBarTray>
+        <TextBlock HorizontalAlignment="Left" Margin="10,54,0,5" TextWrapping="Wrap" Text="{Binding Path=TreeItemsResultString}" VerticalAlignment="Top" />
+
+        <uiHelpers:StretchingTreeView x:Name="SearchResults" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="10,75,10,10" ItemsSource="{Binding Path=TreeViewModel.TreeViewItems}" PreviewMouseLeftButtonDown="SearchResults_PreviewMouseLeftButtonDown" PreviewMouseRightButtonDown="SearchResults_PreviewMouseRightButtonDown"
+                   x:FieldModifier="private" PreviewMouseMove="SearchResults_PreviewMouseMove" Drop="SearchResults_Drop" DragEnter="SearchResults_DragEnter" AllowDrop="True" KeyDown="SearchResults_KeyDown"
+                   Visibility="{Binding Path=TreeViewModel.TreeViewItems, Converter={StaticResource EmptyListToVisibilityConverter}}">
+
+            <TreeView.Resources>
+                <ContextMenu x:Key="DirectoryContext" Opened="SearchResults_ContextMenuOpened" Closed="SearchResults_ContextMenuClosed">
+                    <MenuItem Header="Open in Explorer" Click="SearchResults_OpenInExplorer">
+                        <MenuItem.Icon>
+                            <Image Source="Resources/directory.png" />
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <Separator />
+                    <MenuItem Header="Add">
+                        <MenuItem.Icon>
+                            <Image Source="Resources/add.png" />
+                        </MenuItem.Icon>
+                        <MenuItem Header="Directory" Click="SearchResults_AddDirectory">
+                            <MenuItem.Icon>
+                                <Image Source="Resources/directory.png" />
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem Header="File" Click="SearchResults_AddFile">
+                            <MenuItem.Icon>
+                                <Image Source="Resources/file.png" />
+                            </MenuItem.Icon>
+                        </MenuItem>
+                    </MenuItem>
+                    <MenuItem Header="Rename" Click="SearchResults_Rename" InputGestureText="F2" >
+                        <MenuItem.Icon>
+                            <Image Source="Resources/textfield_rename.png" />
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="Delete" Click="SearchResults_Delete" InputGestureText="Del">
+                        <MenuItem.Icon>
+                            <Image Source="Resources/cross.png" />
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <Separator />
+                    <MenuItem Header="Source Control">
+                        <MenuItem.Icon>
+                            <Image Source="Resources/directory.png" />
+                        </MenuItem.Icon>
+                        <MenuItem Header="Get latest version" Click="SearchResults_GetLatestVersion">
+                            <MenuItem.Icon>
+                                <Image Source="Resources/GetLatest.png" />
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem Header="Get pending changes" Click="SearchResults_PendingChanges">
+                            <MenuItem.Icon>
+                                <Image Source="Resources/PendingChanges.png" />
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem Header="Check-in pending changes" Click="SearchResults_CheckinChanges">
+                            <MenuItem.Icon>
+                                <Image Source="Resources/Checkin.png" />
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem Header="Check out" Click="SearchResults_Checkout">
+                            <MenuItem.Icon>
+                                <Image Source="Resources/Checkout.png" />
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem Header="Add to source control" Click="SearchResults_AddToControl">
+                            <MenuItem.Icon>
+                                <Image Source="Resources/AddItem.png" />
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem Header="History" Click="SearchResults_History">
+                            <MenuItem.Icon>
+                                <Image Source="Resources/ViewHistory.png" />
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem Header="Undo pending changes" Click="SearchResults_UndoChanges">
+                            <MenuItem.Icon>
+                                <Image Source="Resources/UndoPending.png" />
+                            </MenuItem.Icon>
+                        </MenuItem>
+                    </MenuItem>
+                </ContextMenu>
+
+                <ContextMenu x:Key="FileContext" Opened="SearchResults_ContextMenuOpened" Closed="SearchResults_ContextMenuClosed">
+                    <MenuItem Header="Open in Explorer" Click="SearchResults_OpenInExplorer">
+                        <MenuItem.Icon>
+                            <Image Source="Resources/directory.png" />
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <Separator />
+                    <MenuItem Header="Rename" Click="SearchResults_Rename" InputGestureText="F2">
+                        <MenuItem.Icon>
+                            <Image Source="Resources/textfield_rename.png" />
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="Delete" Click="SearchResults_Delete" InputGestureText="Del">
+                        <MenuItem.Icon>
+                            <Image Source="Resources/cross.png" />
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <Separator />
+                    <MenuItem Header="Source Control">
+                        <MenuItem.Icon>
+                            <Image Source="Resources/directory.png" />
+                        </MenuItem.Icon>
+                        <MenuItem Header="Get latest version" Click="SearchResults_GetLatestVersion">
+                            <MenuItem.Icon>
+                                <Image Source="Resources/GetLatest.png" />
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem Header="Get pending changes" Click="SearchResults_PendingChanges">
+                            <MenuItem.Icon>
+                                <Image Source="Resources/PendingChanges.png" />
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem Header="Check-in pending changes" Click="SearchResults_CheckinChanges">
+                            <MenuItem.Icon>
+                                <Image Source="Resources/Checkin.png" />
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem Header="Check out" Click="SearchResults_Checkout">
+                            <MenuItem.Icon>
+                                <Image Source="Resources/Checkout.png" />
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem Header="Add to source control" Click="SearchResults_AddToControl">
+                            <MenuItem.Icon>
+                                <Image Source="Resources/AddItem.png" />
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem Header="History" Click="SearchResults_History">
+                            <MenuItem.Icon>
+                                <Image Source="Resources/ViewHistory.png" />
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem Header="Undo pending changes" Click="SearchResults_UndoChanges">
+                            <MenuItem.Icon>
+                                <Image Source="Resources/UndoPending.png" />
+                            </MenuItem.Icon>
+                        </MenuItem>
+
+                    </MenuItem>
+                </ContextMenu>
+                <ContextMenu x:Key="EmptyContext" Opened="SearchResults_ContextMenuOpened" Closed="SearchResults_ContextMenuClosed">
+                    <MenuItem Header="Add">
+                        <MenuItem.Icon>
+                            <Image Source="Resources/add.png" />
+                        </MenuItem.Icon>
+                        <MenuItem Header="Directory" Click="SearchResults_AddDirectory">
+                            <MenuItem.Icon>
+                                <Image Source="Resources/directory.png" />
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem Header="File" Click="SearchResults_AddFile">
+                            <MenuItem.Icon>
+                                <Image Source="Resources/file.png" />
+                            </MenuItem.Icon>
+                        </MenuItem>
+                    </MenuItem>
+                </ContextMenu>
+            </TreeView.Resources>
+
+            <TreeView.ItemTemplate>
+                <HierarchicalDataTemplate ItemsSource="{Binding Path=Children}" DataType="{x:Type viewModel:TreeViewEntryItemModel}">
+                    <ContentPresenter Content="{Binding}">
+                        <ContentPresenter.Style>
+                            <Style TargetType="{x:Type ContentPresenter}">
+                                <Setter Property="ContentTemplate" Value="{StaticResource StandardTemplate}" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsBeingEdited}" Value="True">
+                                        <Setter Property="ContentTemplate" Value="{StaticResource EditTemplate}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ContentPresenter.Style>
+                    </ContentPresenter>
+                </HierarchicalDataTemplate>
+            </TreeView.ItemTemplate>
+            <TreeView.ItemContainerStyle>
+                <Style TargetType="TreeViewItem">
+                    <Setter Property="IsExpanded" Value="{Binding Path=IsExpanded, Mode=TwoWay}" />
+                    <Setter Property="IsSelected" Value="{Binding Path=IsSelected, Mode=TwoWay}" />
+                    <Setter Property="FontWeight" Value="Normal" />
+                    <Style.Triggers>
+                        <MultiTrigger>
+                            <MultiTrigger.Conditions>
+                                <Condition Property="IsSelected" Value="True" />
+                                <Condition Property="IsSelectionActive" Value="False" />
+                            </MultiTrigger.Conditions>
+                            <Setter Property="FontWeight" Value="Bold" />
+                        </MultiTrigger>
+                        <Trigger Property="uiHelpers:TreeViewMouseHelper.IsMouseDirectlyOverItem" Value="True">
+                            <Setter Property="Background" Value="{DynamicResource {x:Static SystemColors.MenuBrushKey}}" />
+                        </Trigger>
+                        <Trigger Property="uiHelpers:TreeViewDropHighlighter.IsPossibleDropTarget" Value="True">
+                            <Setter Property="Background" Value="{DynamicResource {x:Static SystemColors.MenuHighlightBrushKey}}" />
+                            <Setter Property="FontWeight" Value="Bold" />
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+            </TreeView.ItemContainerStyle>
+        </uiHelpers:StretchingTreeView>
+    </Grid>
+</UserControl>
